@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MFS Text Converter</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- SheetJS for XLSX Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #D81B60;
+            --primary-dark: #AD1457;
+            --primary-light: #FCE4EC;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --bg-color: #F8F9FA;
+            --surface: #FFFFFF;
+            --border-color: #E0E0E0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: var(--surface);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        header h1 {
+            color: var(--primary);
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            resize: vertical;
+            font-size: 14px;
+            color: var(--text-main);
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--primary-light);
+        }
+
+        .btn-action {
+            background-color: var(--surface);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 10px 18px;
+            font-size: 14px;
+        }
+
+        .btn-action:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background-color: var(--primary-light);
+        }
+
+        .preview-section {
+            display: none; /* Hidden by default */
+            border-top: 2px solid var(--primary-light);
+            padding-top: 30px;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .preview-header h2 {
+            font-size: 20px;
+            color: var(--text-main);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            min-width: 800px;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: var(--primary);
+            color: white;
+            font-weight: 500;
+            white-space: nowrap;
+            font-family: 'Roboto', sans-serif;
+            font-size: 15px;
+        }
+
+        td {
+            font-size: 14px;
+            vertical-align: top;
+        }
+
+        /* Column Widths (Applies to both th and td) */
+        .col-sms { width: 50%; }
+        .col-amount { width: 15%; }
+        .col-sender { width: 20%; }
+        .col-trx { width: 15%; }
+
+        /* Specific Cell Formatting (Applies ONLY to td) */
+        td.col-sms {
+            white-space: pre-wrap; /* Preserves newlines for remittance texts */
+            color: #555;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        td.col-amount { font-weight: 500; }
+        td.col-trx { font-family: monospace; }
+
+        tr:nth-child(even) { background-color: #fafafa; }
+        tr:hover { background-color: var(--primary-light); }
+
+        .export-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: bottom 0.3s ease-in-out;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            bottom: 30px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        /* Context Menu */
+        .context-menu {
+            display: none;
+            position: fixed;
+            background-color: var(--surface);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            z-index: 2000;
+            overflow: hidden;
+            min-width: 150px;
+        }
+
+        .context-menu ul {
+            list-style: none;
+            margin: 0;
+            padding: 5px 0;
+        }
+
+        .context-menu li {
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .context-menu li:hover {
+            background-color: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .context-menu li.text-danger:hover {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+
+        /* SVG Icons */
+        .icon {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>MFS Text Converter</h1>
+            <p>Paste raw Google Messages web logs to extract relevant deposit/remittance info.</p>
+        </header>
+
+        <div class="input-group">
+            <textarea id="inputText" placeholder="Paste your raw SMS texts here..."></textarea>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-primary" id="extractBtn">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z"/></svg>
+                Extract Data
+            </button>
+            <button class="btn-outline" id="clearBtn">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                Clear
+            </button>
+        </div>
+
+        <div class="preview-section" id="previewSection">
+            <div class="preview-header">
+                <h2>Extracted Data Preview (<span id="countBadge">0</span>)</h2>
+            </div>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="col-sms">SMS</th>
+                            <th class="col-amount">Amount (Tk)</th>
+                            <th class="col-sender">Sender</th>
+                            <th class="col-trx">Trxn ID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataBody">
+                        <!-- Data injected via JS -->
+                    </tbody>
+                </table>
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    No valid MFS deposits or remittances found in the provided text.
+                </div>
+            </div>
+
+            <div class="export-actions">
+                <button class="btn-action" id="copyBtn">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    Copy Data
+                </button>
+                <button class="btn-action" id="copySmsBtn">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                    Copy Only SMS
+                </button>
+                <button class="btn-action" id="csvBtn">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    Download CSV
+                </button>
+                <button class="btn-action" id="xlsxBtn">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    Download XLSX
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Message goes here</div>
+
+    <!-- Context Menu HTML -->
+    <div id="contextMenu" class="context-menu">
+        <ul>
+            <li id="menuCopy">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                Copy Row
+            </li>
+            <li id="menuDelete" class="text-danger">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                Delete Row
+            </li>
+        </ul>
+    </div>
+
+    <script>
+        // DOM Elements
+        const inputText = document.getElementById('inputText');
+        const extractBtn = document.getElementById('extractBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const previewSection = document.getElementById('previewSection');
+        const dataBody = document.getElementById('dataBody');
+        const countBadge = document.getElementById('countBadge');
+        const emptyState = document.getElementById('emptyState');
+        const toast = document.getElementById('toast');
+
+        // Export Buttons
+        const copyBtn = document.getElementById('copyBtn');
+        const copySmsBtn = document.getElementById('copySmsBtn');
+        const csvBtn = document.getElementById('csvBtn');
+        const xlsxBtn = document.getElementById('xlsxBtn');
+
+        // Context Menu Elements
+        const contextMenu = document.getElementById('contextMenu');
+        const menuCopy = document.getElementById('menuCopy');
+        const menuDelete = document.getElementById('menuDelete');
+
+        // State
+        let extractedData = [];
+        let contextRowIndex = -1;
+
+        // Constants for Output Headers
+        const HEADERS = ["SMS", "Amount", "Sender", "Trxn ID"];
+
+        // Show Toast Notification
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Logic to clear text
+        clearBtn.addEventListener('click', () => {
+            inputText.value = '';
+            previewSection.style.display = 'none';
+            extractedData = [];
+            showToast('Input cleared');
+        });
+
+        // Main Extraction Logic
+        extractBtn.addEventListener('click', () => {
+            const text = inputText.value;
+            if (!text.trim()) {
+                showToast('Please paste some text first.');
+                return;
+            }
+
+            // Reset temp array
+            const tempResults = [];
+
+            /**
+             * REGEX 1 & 2: Direct Receive & iBanking
+             * Matches: "You have received Tk..." or "You have received deposit from iBanking of Tk..."
+             * Group 1: Full SMS string
+             * Group 2: Amount
+             * Group 3: Sender (Lazily matches up to the first period)
+             * Group 4: TrxID
+             */
+            const regex12 = /(You have received (?:deposit from iBanking of )?Tk ([\d,]+\.\d{2}) from (.*?)\.(?:.*?)TrxID ([A-Z0-9]+) at \d{2}\/\d{2}\/\d{4} \d{2}:\d{2})/g;
+            
+            /**
+             * REGEX 3: Remittance
+             * Matches multiline remittance string
+             * Group 1: Full SMS string
+             * Group 2: Amount
+             * Group 3: TrxID
+             */
+            const regex3 = /(You have received remittance\.[\s\S]*?Total: Tk ([\d,]+\.\d{2})[\s\S]*?TrxID ([A-Z0-9]+) at \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}\.[\s\S]*?(?:Details: \S+)?)/g;
+
+            let match;
+
+            // Extract Type 1 & 2
+            while ((match = regex12.exec(text)) !== null) {
+                let rawSms = match[1];
+                let amount = match[2];
+                let sender = match[3].trim();
+                let trxId = match[4];
+
+                // Obscure balance
+                let obscuredSms = rawSms.replace(/Balance Tk [\d,]+\.\d{2}/g, "Balance Tk ###.##");
+
+                tempResults.push({
+                    index: match.index, // Save index to maintain chronological order
+                    sms: obscuredSms,
+                    amount: amount,
+                    sender: sender,
+                    trxId: trxId
+                });
+            }
+
+            // Extract Type 3 (Remittance)
+            while ((match = regex3.exec(text)) !== null) {
+                let rawSms = match[1];
+                let amount = match[2];
+                let trxId = match[3];
+
+                tempResults.push({
+                    index: match.index,
+                    sms: rawSms.trim(), // Remittance usually doesn't have balance, so no regex replace needed
+                    amount: amount,
+                    sender: "Remittance",
+                    trxId: trxId
+                });
+            }
+
+            // Sort by their appearance index in the original text, then remove index property
+            extractedData = tempResults.sort((a, b) => a.index - b.index).map(item => ({
+                sms: item.sms,
+                amount: item.amount,
+                sender: item.sender,
+                trxId: item.trxId
+            }));
+
+            renderTable();
+        });
+
+        // Render Table Data
+        function renderTable() {
+            previewSection.style.display = 'block';
+            dataBody.innerHTML = '';
+            countBadge.textContent = extractedData.length;
+
+            if (extractedData.length === 0) {
+                document.querySelector('table').style.display = 'none';
+                emptyState.style.display = 'block';
+                copyBtn.disabled = true;
+                csvBtn.disabled = true;
+                xlsxBtn.disabled = true;
+                showToast('No valid formats found.');
+                return;
+            }
+
+            document.querySelector('table').style.display = 'table';
+            emptyState.style.display = 'none';
+            copyBtn.disabled = false;
+            csvBtn.disabled = false;
+            xlsxBtn.disabled = false;
+
+            extractedData.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                const tdSms = document.createElement('td');
+                tdSms.className = 'col-sms';
+                tdSms.textContent = row.sms; // textContent safely escapes HTML
+
+                const tdAmount = document.createElement('td');
+                tdAmount.className = 'col-amount';
+                tdAmount.textContent = row.amount;
+
+                const tdSender = document.createElement('td');
+                tdSender.className = 'col-sender';
+                tdSender.textContent = row.sender;
+
+                const tdTrx = document.createElement('td');
+                tdTrx.className = 'col-trx';
+                tdTrx.textContent = row.trxId;
+
+                tr.appendChild(tdSms);
+                tr.appendChild(tdAmount);
+                tr.appendChild(tdSender);
+                tr.appendChild(tdTrx);
+
+                dataBody.appendChild(tr);
+            });
+
+            // Smooth scroll to results
+            previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast(`Extracted ${extractedData.length} records successfully.`);
+        }
+
+        // ==========================================
+        // EXPORT FUNCTIONS
+        // ==========================================
+
+        // Helper function for copy logic
+        function copyToClipboard(text, successMessage) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast(successMessage);
+            } catch (err) {
+                showToast('Failed to copy. Try downloading instead.');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // 1. Copy to Clipboard (TSV format for easy Excel/Sheets pasting) - NO HEADERS
+        copyBtn.addEventListener('click', () => {
+            if (extractedData.length === 0) return;
+
+            let tsvContent = '';
+            
+            extractedData.forEach(row => {
+                // Remove newlines from SMS for TSV to prevent row breaking in Excel
+                const cleanSms = row.sms.replace(/\n/g, '  '); 
+                const rowArray = [cleanSms, row.amount, row.sender, row.trxId];
+                tsvContent += rowArray.join('\t') + '\n';
+            });
+
+            copyToClipboard(tsvContent, 'Data copied to clipboard!');
+        });
+
+        // 1.5 Copy Only SMS
+        copySmsBtn.addEventListener('click', () => {
+            if (extractedData.length === 0) return;
+            // Clean internal newlines to prevent row breaking in Excel, join with single newline
+            const smsContent = extractedData.map(row => row.sms.replace(/\n/g, '  ')).join('\n');
+            copyToClipboard(smsContent, 'SMS column copied to clipboard!');
+        });
+
+        // 2. Download CSV
+        csvBtn.addEventListener('click', () => {
+            if (extractedData.length === 0) return;
+
+            let csvContent = HEADERS.map(h => `"${h}"`).join(',') + '\n';
+
+            extractedData.forEach(row => {
+                // Escape double quotes in SMS
+                const escapedSms = row.sms.replace(/"/g, '""');
+                const rowArray = [
+                    `"${escapedSms}"`, // Encapsulate in quotes to handle internal commas/newlines safely
+                    row.amount,
+                    `"${row.sender}"`,
+                    `"${row.trxId}"`
+                ];
+                csvContent += rowArray.join(',') + '\n';
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'mfs_extracted_data.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('CSV download started.');
+        });
+
+        // 3. Download XLSX (Using SheetJS)
+        xlsxBtn.addEventListener('click', () => {
+            if (extractedData.length === 0) return;
+            if (typeof XLSX === 'undefined') {
+                showToast('XLSX Library is still loading. Try again in a second.');
+                return;
+            }
+
+            // Format data for SheetJS
+            const formattedForExcel = extractedData.map(row => ({
+                "SMS": row.sms,
+                "Amount": row.amount,
+                "Sender": row.sender,
+                "Trxn ID": row.trxId
+            }));
+
+            // Create Worksheet
+            const ws = XLSX.utils.json_to_sheet(formattedForExcel);
+
+            // Set some column width hints
+            ws['!cols'] = [
+                { wch: 80 }, // SMS 
+                { wch: 15 }, // Amount
+                { wch: 25 }, // Sender
+                { wch: 20 }  // Trxn ID
+            ];
+
+            // Create Workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "MFS Data");
+
+            // Save File
+            XLSX.writeFile(wb, "mfs_extracted_data.xlsx");
+            showToast('XLSX download started.');
+        });
+
+        // ==========================================
+        // CONTEXT MENU LOGIC
+        // ==========================================
+        
+        // Show context menu on right click
+        dataBody.addEventListener('contextmenu', (e) => {
+            const tr = e.target.closest('tr');
+            if (!tr) return;
+            
+            e.preventDefault();
+            
+            // Get index of the row
+            contextRowIndex = Array.from(dataBody.children).indexOf(tr);
+            
+            // Position the menu
+            contextMenu.style.display = 'block';
+            
+            // Ensure the menu doesn't go off screen
+            const menuWidth = contextMenu.offsetWidth;
+            const menuHeight = contextMenu.offsetHeight;
+            let leftPos = e.clientX;
+            let topPos = e.clientY;
+
+            if (leftPos + menuWidth > window.innerWidth) {
+                leftPos = window.innerWidth - menuWidth - 10;
+            }
+            if (topPos + menuHeight > window.innerHeight) {
+                topPos = window.innerHeight - menuHeight - 10;
+            }
+
+            contextMenu.style.left = `${leftPos}px`;
+            contextMenu.style.top = `${topPos}px`;
+        });
+
+        // Hide context menu on outside click
+        document.addEventListener('click', (e) => {
+            if (e.button !== 2) { // Hide if it's not a right click
+                contextMenu.style.display = 'none';
+            }
+        });
+
+        // Copy Single Row
+        menuCopy.addEventListener('click', () => {
+            if (contextRowIndex === -1) return;
+            contextMenu.style.display = 'none';
+            
+            const row = extractedData[contextRowIndex];
+            const cleanSms = row.sms.replace(/\n/g, '  ');
+            const rowData = [cleanSms, row.amount, row.sender, row.trxId].join('\t');
+            
+            copyToClipboard(rowData, 'Row copied to clipboard!');
+        });
+
+        // Delete Row
+        menuDelete.addEventListener('click', () => {
+            if (contextRowIndex === -1) return;
+            contextMenu.style.display = 'none';
+            
+            extractedData.splice(contextRowIndex, 1);
+            renderTable();
+            showToast('Row deleted!');
+        });
+
+    </script>
+</body>
+</html>
